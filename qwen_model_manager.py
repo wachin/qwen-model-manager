@@ -113,7 +113,6 @@ class AddEditModelDialog(QDialog):
             prov_idx = self.combo_provider.findText(model.get("provider", "openai"))
             if prov_idx >= 0:
                 self.combo_provider.setCurrentIndex(prov_idx)
-            self.combo_provider.setEnabled(False)
             self.input_id.setText(model.get("id", ""))
             self.input_id.setReadOnly(True)
             self.input_name.setText(model.get("name", ""))
@@ -879,11 +878,10 @@ class QwenModelManager(QMainWindow):
 
         self.settings_data["modelProviders"][provider].append(new_model)
 
-        # Anadir envKey si es nueva
-        if data["envKey"] and data["envKey"] not in self.settings_data.get(
-            "env", {}
-        ):
-            self.settings_data.setdefault("env", {})[data["envKey"]] = ""
+        # Solo anadir envKey si no esta vacia y es nueva
+        if data["envKey"].strip():
+            if data["envKey"] not in self.settings_data.get("env", {}):
+                self.settings_data.setdefault("env", {})[data["envKey"]] = ""
 
         if self._save_settings():
             QMessageBox.information(
@@ -923,23 +921,45 @@ class QwenModelManager(QMainWindow):
             return
 
         data = dlg.get_data()
+        old_provider = model["provider"]
+        new_provider = data["provider"]
 
-        # Buscar y actualizar el modelo en la estructura
-        prov_list = self.settings_data.get("modelProviders", {}).get(
-            model["provider"], []
-        )
-        for m in prov_list:
-            if m.get("id") == model["id"] and m.get("baseUrl") == model["baseUrl"]:
-                m["name"] = data["name"]
-                m["baseUrl"] = data["baseUrl"]
-                m["envKey"] = data["envKey"]
-                break
+        updated_model = {
+            "id": data["id"],
+            "name": data["name"],
+            "baseUrl": data["baseUrl"],
+            "envKey": data["envKey"],
+        }
 
-        # Si el modelo editado era el activo, actualizar tambien
+        # 1. Eliminar del provider viejo
+        old_list = self.settings_data["modelProviders"].get(old_provider, [])
+        old_list = [
+            m for m in old_list
+            if not (m.get("id") == model["id"] and m.get("baseUrl") == model["baseUrl"])
+        ]
+        if old_list:
+            self.settings_data["modelProviders"][old_provider] = old_list
+        else:
+            del self.settings_data["modelProviders"][old_provider]
+
+        # 2. Anadir al provider nuevo
+        if new_provider not in self.settings_data["modelProviders"]:
+            self.settings_data["modelProviders"][new_provider] = []
+        self.settings_data["modelProviders"][new_provider].append(updated_model)
+
+        # 3. Si la envKey es nueva, anadir al dict env
+        if data["envKey"] and data["envKey"] not in self.settings_data.get("env", {}):
+            self.settings_data.setdefault("env", {})[data["envKey"]] = ""
+
+        # 4. Si era el modelo activo, actualizar
         current = self.settings_data.get("model", {})
-        if current.get("name") == model["name"]:
-            self.settings_data["model"]["name"] = data["name"]
-            self.settings_data["model"]["baseUrl"] = data["baseUrl"]
+        if current.get("name") == model["name"] and current.get("baseUrl") == model["baseUrl"]:
+            self.settings_data["model"] = {
+                "name": data["name"],
+                "baseUrl": data["baseUrl"],
+            }
+            self.settings_data["security"] = self.settings_data.get("security", {})
+            self.settings_data["security"]["auth"] = {"selectedType": new_provider}
 
         if self._save_settings():
             QMessageBox.information(
