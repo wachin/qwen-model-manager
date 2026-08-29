@@ -419,6 +419,7 @@ class QwenModelManager(QMainWindow):
             }
             QListWidget::item:hover {
                 background-color: #dfe6e9;
+                color: #2f3640;
             }
             QPushButton {
                 background-color: #0984e3;
