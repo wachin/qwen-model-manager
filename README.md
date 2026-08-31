@@ -30,6 +30,8 @@ pip install PyQt6
 python3 qwen_model_manager.py
 ```
 
+![](../../Imágenes/qwen/qwen-model-manager.png)
+
 The application reads and writes `~/.qwen/settings.json`. Make sure you have run Qwen Code at least once so the file exists.
 
 ## Keyboard Shortcuts
