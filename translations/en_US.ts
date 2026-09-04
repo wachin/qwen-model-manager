@@ -4,64 +4,79 @@
   <context>
     <name>AddEditModelDialog</name>
     <message>
-      <location filename="../qwen_model_manager.py" line="72" />
+      <location filename="../qwen_model_manager.py" line="73" />
       <source>Edit Model</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="72" />
+      <location filename="../qwen_model_manager.py" line="73" />
       <source>Add New Model</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="85" />
+      <location filename="../qwen_model_manager.py" line="86" />
       <source>Provider:</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="88" />
+      <location filename="../qwen_model_manager.py" line="89" />
       <source>e.g. z-ai/glm-5.3-free</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="92" />
+      <location filename="../qwen_model_manager.py" line="93" />
       <source>Visible model name</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="93" />
+      <location filename="../qwen_model_manager.py" line="94" />
       <source>Name:</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="97" />
+      <location filename="../qwen_model_manager.py" line="98" />
       <source>Base URL:</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="104" />
+      <location filename="../qwen_model_manager.py" line="105" />
       <source>Select or type a new envKey</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="145" />
-      <location filename="../qwen_model_manager.py" line="140" />
-      <location filename="../qwen_model_manager.py" line="135" />
+      <location filename="../qwen_model_manager.py" line="112" />
+      <source>Paste the real API key value (optional)</source>
+      <translation type="unfinished" />
+    </message>
+    <message>
+      <location filename="../qwen_model_manager.py" line="114" />
+      <source>API Key Value:</source>
+      <translation type="unfinished" />
+    </message>
+    <message>
+      <location filename="../qwen_model_manager.py" line="143" />
+      <source>Key already set ({}); leave empty to keep it</source>
+      <translation type="unfinished" />
+    </message>
+    <message>
+      <location filename="../qwen_model_manager.py" line="171" />
+      <location filename="../qwen_model_manager.py" line="166" />
+      <location filename="../qwen_model_manager.py" line="161" />
       <source>Validation</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="135" />
+      <location filename="../qwen_model_manager.py" line="161" />
       <source>The ID field is required.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="140" />
+      <location filename="../qwen_model_manager.py" line="166" />
       <source>The Name field is required.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="146" />
+      <location filename="../qwen_model_manager.py" line="172" />
       <source>The Base URL field is required.</source>
       <translation type="unfinished" />
     </message>
@@ -83,116 +98,127 @@
   <context>
     <name>QwenModelManager</name>
     <message>
-      <location filename="../qwen_model_manager.py" line="164" />
+      <location filename="../qwen_model_manager.py" line="191" />
       <source>Qwen Code - Model Manager</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="187" />
+      <location filename="../qwen_model_manager.py" line="214" />
       <source>Models Configured in Qwen Code</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="200" />
+      <location filename="../qwen_model_manager.py" line="227" />
       <source>Select a model from the list to view details.
 Change the active model, edit or delete models.
 If multiple models share the same API Key, it is preserved on deletion.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="220" />
+      <location filename="../qwen_model_manager.py" line="247" />
       <source>+ Add Model</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="237" />
-      <source>Edit</source>
+      <location filename="../qwen_model_manager.py" line="264" />
+      <source>+ OpenRouter</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="247" />
-      <source>Set Active</source>
-      <translation type="unfinished" />
-    </message>
-    <message>
-      <location filename="../qwen_model_manager.py" line="266" />
-      <source>Delete</source>
-      <translation type="unfinished" />
-    </message>
-    <message>
-      <location filename="../qwen_model_manager.py" line="276" />
-      <source>Reload (Ctrl+R)</source>
-      <translation type="unfinished" />
-    </message>
-    <message>
-      <location filename="../qwen_model_manager.py" line="281" />
-      <source>Create Backup</source>
+      <location filename="../qwen_model_manager.py" line="267" />
+      <source>Quick-add an OpenRouter model
+(baseUrl: https://openrouter.ai/api/v1, envKey: OPENROUTER_API_KEY)</source>
       <translation type="unfinished" />
     </message>
     <message>
       <location filename="../qwen_model_manager.py" line="290" />
+      <source>Edit</source>
+      <translation type="unfinished" />
+    </message>
+    <message>
+      <location filename="../qwen_model_manager.py" line="300" />
+      <source>Set Active</source>
+      <translation type="unfinished" />
+    </message>
+    <message>
+      <location filename="../qwen_model_manager.py" line="319" />
+      <source>Delete</source>
+      <translation type="unfinished" />
+    </message>
+    <message>
+      <location filename="../qwen_model_manager.py" line="329" />
+      <source>Reload (Ctrl+R)</source>
+      <translation type="unfinished" />
+    </message>
+    <message>
+      <location filename="../qwen_model_manager.py" line="334" />
+      <source>Create Backup</source>
+      <translation type="unfinished" />
+    </message>
+    <message>
+      <location filename="../qwen_model_manager.py" line="343" />
       <source>Restore Backup</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="295" />
+      <location filename="../qwen_model_manager.py" line="348" />
       <source>Open .qwen Folder</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="308" />
+      <location filename="../qwen_model_manager.py" line="361" />
       <source>Selected Model Details</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="624" />
-      <location filename="../qwen_model_manager.py" line="311" />
+      <location filename="../qwen_model_manager.py" line="677" />
+      <location filename="../qwen_model_manager.py" line="364" />
       <source>Select a model from the list</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="348" />
+      <location filename="../qwen_model_manager.py" line="401" />
       <source>Qwen Code Current Status</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="351" />
+      <location filename="../qwen_model_manager.py" line="404" />
       <source>Active model: -</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="357" />
+      <location filename="../qwen_model_manager.py" line="410" />
       <source>Active base URL: -</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="361" />
+      <location filename="../qwen_model_manager.py" line="414" />
       <source>Auth type: -</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="367" />
+      <location filename="../qwen_model_manager.py" line="420" />
       <source>JSON Preview (read-only)</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="389" />
+      <location filename="../qwen_model_manager.py" line="442" />
       <source>Ready. Select a model to view details.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1148" />
-      <location filename="../qwen_model_manager.py" line="1124" />
-      <location filename="../qwen_model_manager.py" line="1080" />
-      <location filename="../qwen_model_manager.py" line="1056" />
-      <location filename="../qwen_model_manager.py" line="1033" />
-      <location filename="../qwen_model_manager.py" line="538" />
-      <location filename="../qwen_model_manager.py" line="511" />
+      <location filename="../qwen_model_manager.py" line="1211" />
+      <location filename="../qwen_model_manager.py" line="1187" />
+      <location filename="../qwen_model_manager.py" line="1143" />
+      <location filename="../qwen_model_manager.py" line="1119" />
+      <location filename="../qwen_model_manager.py" line="1096" />
+      <location filename="../qwen_model_manager.py" line="591" />
+      <location filename="../qwen_model_manager.py" line="564" />
       <source>Error</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="512" />
+      <location filename="../qwen_model_manager.py" line="565" />
       <source>Configuration file not found:
 {path}
 
@@ -200,17 +226,17 @@ Make sure you have run Qwen Code at least once.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="518" />
+      <location filename="../qwen_model_manager.py" line="571" />
       <source>File not found.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="527" />
+      <location filename="../qwen_model_manager.py" line="580" />
       <source>JSON Error</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="528" />
+      <location filename="../qwen_model_manager.py" line="581" />
       <source>The settings.json file is corrupted:
 {error}
 
@@ -218,85 +244,85 @@ You must fix it manually before using this tool.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="534" />
+      <location filename="../qwen_model_manager.py" line="587" />
       <source>Corrupt JSON.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="539" />
+      <location filename="../qwen_model_manager.py" line="592" />
       <source>Could not read file:
 {error}</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="595" />
+      <location filename="../qwen_model_manager.py" line="648" />
       <source>Active model: {name}</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="598" />
+      <location filename="../qwen_model_manager.py" line="651" />
       <source>Active base URL: {url}</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="601" />
+      <location filename="../qwen_model_manager.py" line="654" />
       <source>Auth type: {type}</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="612" />
+      <location filename="../qwen_model_manager.py" line="665" />
       <source>Loaded {count} model(s) in {providers} provider(s). Select one to view details.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="652" />
+      <location filename="../qwen_model_manager.py" line="705" />
       <source>[SHARED] This API Key is used by {count} models. It will be preserved on deletion.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="659" />
+      <location filename="../qwen_model_manager.py" line="712" />
       <source>[UNIQUE] Only this model uses this API Key.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="673" />
+      <location filename="../qwen_model_manager.py" line="726" />
       <source>Valid JSON.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="675" />
+      <location filename="../qwen_model_manager.py" line="728" />
       <source>Validation error: {error}</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="684" />
+      <location filename="../qwen_model_manager.py" line="737" />
       <source>Validation Error</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="685" />
+      <location filename="../qwen_model_manager.py" line="738" />
       <source>Cannot save JSON:
 {msg}</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="705" />
+      <location filename="../qwen_model_manager.py" line="758" />
       <source>Save Error</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="706" />
+      <location filename="../qwen_model_manager.py" line="759" />
       <source>Could not save file:
 {error}</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="740" />
+      <location filename="../qwen_model_manager.py" line="793" />
       <source>Confirm Deletion</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="741" />
+      <location filename="../qwen_model_manager.py" line="794" />
       <source>You are about to delete the model:
 
   {name}
@@ -308,15 +334,15 @@ Are you sure?</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1021" />
-      <location filename="../qwen_model_manager.py" line="941" />
-      <location filename="../qwen_model_manager.py" line="900" />
-      <location filename="../qwen_model_manager.py" line="791" />
+      <location filename="../qwen_model_manager.py" line="1084" />
+      <location filename="../qwen_model_manager.py" line="1008" />
+      <location filename="../qwen_model_manager.py" line="953" />
+      <location filename="../qwen_model_manager.py" line="844" />
       <source>Success</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="792" />
+      <location filename="../qwen_model_manager.py" line="845" />
       <source>Successfully deleted:
 
   - {name}
@@ -325,12 +351,12 @@ Restart Qwen Code to apply changes.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="812" />
+      <location filename="../qwen_model_manager.py" line="865" />
       <source>Delete Error</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="813" />
+      <location filename="../qwen_model_manager.py" line="866" />
       <source>An error occurred:
 {error}
 
@@ -339,22 +365,22 @@ The file may be damaged. Check it manually:
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="863" />
+      <location filename="../qwen_model_manager.py" line="916" />
       <source>Info</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="864" />
+      <location filename="../qwen_model_manager.py" line="917" />
       <source>This model is already active.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="870" />
+      <location filename="../qwen_model_manager.py" line="923" />
       <source>Activate Model</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="871" />
+      <location filename="../qwen_model_manager.py" line="924" />
       <source>Do you want to activate the model:
 
   {name}
@@ -365,7 +391,7 @@ This will change the active model in Qwen Code.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="901" />
+      <location filename="../qwen_model_manager.py" line="954" />
       <source>Active model changed to:
 
   {name}
@@ -374,7 +400,16 @@ Restart Qwen Code to apply changes.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="942" />
+      <location filename="../qwen_model_manager.py" line="998" />
+      <source>Model added:
+
+  {name}
+
+The API key was saved to env[{envkey}].</source>
+      <translation type="unfinished" />
+    </message>
+    <message>
+      <location filename="../qwen_model_manager.py" line="1003" />
       <source>Model added:
 
   {name}
@@ -383,70 +418,70 @@ Remember to assign the API key in settings.json if you used a new envKey.</sourc
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1022" />
+      <location filename="../qwen_model_manager.py" line="1085" />
       <source>Model updated:
 
   {name}</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1034" />
+      <location filename="../qwen_model_manager.py" line="1097" />
       <source>Could not create backups folder:
 {error}</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1046" />
+      <location filename="../qwen_model_manager.py" line="1109" />
       <source>Backup Created</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1047" />
+      <location filename="../qwen_model_manager.py" line="1110" />
       <source>Backup saved to:
 
 {path}</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1134" />
-      <location filename="../qwen_model_manager.py" line="1051" />
+      <location filename="../qwen_model_manager.py" line="1197" />
+      <location filename="../qwen_model_manager.py" line="1114" />
       <source>Warning</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1052" />
+      <location filename="../qwen_model_manager.py" line="1115" />
       <source>settings.json does not exist to back up.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1057" />
+      <location filename="../qwen_model_manager.py" line="1120" />
       <source>Could not create backup:
 {error}</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1067" />
+      <location filename="../qwen_model_manager.py" line="1130" />
       <source>Select backup to restore</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1069" />
+      <location filename="../qwen_model_manager.py" line="1132" />
       <source>JSON files (*.json);;All files (*)</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1081" />
+      <location filename="../qwen_model_manager.py" line="1144" />
       <source>Could not read backup file:
 {error}</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1087" />
+      <location filename="../qwen_model_manager.py" line="1150" />
       <source>Confirm Restore</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1088" />
+      <location filename="../qwen_model_manager.py" line="1151" />
       <source>The current settings.json will be replaced with:
 
   {path}
@@ -457,31 +492,31 @@ Are you sure?</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1115" />
+      <location filename="../qwen_model_manager.py" line="1178" />
       <source>Restored</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1116" />
+      <location filename="../qwen_model_manager.py" line="1179" />
       <source>Backup restored successfully.
 
 Restart Qwen Code to apply changes.</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1125" />
+      <location filename="../qwen_model_manager.py" line="1188" />
       <source>Could not restore backup:
 {error}</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1135" />
+      <location filename="../qwen_model_manager.py" line="1198" />
       <source>Folder does not exist:
 {path}</source>
       <translation type="unfinished" />
     </message>
     <message>
-      <location filename="../qwen_model_manager.py" line="1149" />
+      <location filename="../qwen_model_manager.py" line="1212" />
       <source>Could not open folder:
 {error}</source>
       <translation type="unfinished" />

@@ -6,6 +6,7 @@ A graphical interface built with PyQt6 to manage the AI models configured in [Qw
 
 - **View models** - List all AI models configured across different providers
 - **Add models** - Register new models with provider, ID, name, base URL, and environment key
+- **OpenRouter quick-add** - One-click preset for OpenRouter models (`https://openrouter.ai/api/v1`, `envKey: OPENROUTER_API_KEY`) where you can paste the real API key and it is stored in the `env` section
 - **Edit models** - Modify any model property, including changing its provider
 - **Delete models** - Remove models safely, preserving shared API keys
 - **Activate models** - Switch the active model used by Qwen Code
@@ -33,6 +34,15 @@ python3 qwen_model_manager.py
 ![](image/01-qwen-model-manager.png)
 
 The application reads and writes `~/.qwen/settings.json`. Make sure you have run Qwen Code at least once so the file exists.
+
+## OpenRouter Support
+
+OpenRouter is OpenAI-compatible, so its models are registered under the `openai` provider. Click the **+ OpenRouter** button to open the add dialog pre-filled with:
+
+- `baseUrl`: `https://openrouter.ai/api/v1`
+- `envKey`: `OPENROUTER_API_KEY`
+
+Enter the model ID (e.g. `minimax/minimax-m3:free`) and paste your OpenRouter API key (`sk-or-v1-...`) in the **API Key Value** field. The key is saved to the `env` section of `settings.json` automatically. You can also paste a key value when adding or editing any model, or leave it empty to keep the existing key.
 
 ## Keyboard Shortcuts
 

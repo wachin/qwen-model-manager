@@ -66,13 +66,14 @@ def _file_info(path):
 class AddEditModelDialog(QDialog):
     """Dialog for adding or editing a model."""
 
-    def __init__(self, parent=None, model=None, providers=None, env_vars=None):
+    def __init__(self, parent=None, model=None, providers=None, env_vars=None,
+                 preset=None):
         super().__init__(parent)
         self.setWindowTitle(
             self.tr("Edit Model") if model else self.tr("Add New Model")
         )
         self.setMinimumWidth(550)
-        self.setMinimumHeight(320)
+        self.setMinimumHeight(360)
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
@@ -105,6 +106,13 @@ class AddEditModelDialog(QDialog):
         )
         form.addRow("envKey:", self.combo_envkey)
 
+        self.input_apikey = QLineEdit()
+        self.input_apikey.setEchoMode(QLineEdit.EchoMode.Password)
+        self.input_apikey.setPlaceholderText(
+            self.tr("Paste the real API key value (optional)")
+        )
+        form.addRow(self.tr("API Key Value:"), self.input_apikey)
+
         layout.addLayout(form)
 
         buttons = QDialogButtonBox(
@@ -128,6 +136,24 @@ class AddEditModelDialog(QDialog):
                 self.combo_envkey.setCurrentIndex(env_idx)
             else:
                 self.combo_envkey.setEditText(model.get("envKey", ""))
+            if env_vars:
+                existing = env_vars.get(model.get("envKey", ""), "")
+                if existing:
+                    self.input_apikey.setPlaceholderText(
+                        self.tr(
+                            "Key already set ({}); leave empty to keep it"
+                        ).format(_mask_key(existing))
+                    )
+
+        # Apply preset for quick-add of well-known providers
+        if preset == "openrouter":
+            prov_idx = self.combo_provider.findText("openai")
+            if prov_idx < 0:
+                self.combo_provider.addItem("openai")
+                prov_idx = self.combo_provider.count() - 1
+            self.combo_provider.setCurrentIndex(prov_idx)
+            self.input_baseurl.setText("https://openrouter.ai/api/v1")
+            self.combo_envkey.setEditText("OPENROUTER_API_KEY")
 
     def _validate_and_accept(self):
         if not self.input_id.text().strip():
@@ -155,6 +181,7 @@ class AddEditModelDialog(QDialog):
             "name": self.input_name.text().strip(),
             "baseUrl": self.input_baseurl.text().strip(),
             "envKey": self.combo_envkey.currentText().strip(),
+            "apiKey": self.input_apikey.text().strip(),
         }
 
 
@@ -233,6 +260,32 @@ class QwenModelManager(QMainWindow):
             QPushButton:hover { background-color: #00a381; }
         """)
         btn_layout.addWidget(self.btn_add)
+
+        self.btn_add_openrouter = QPushButton(self.tr("+ OpenRouter"))
+        self.btn_add_openrouter.setMinimumHeight(42)
+        self.btn_add_openrouter.setToolTip(
+            self.tr(
+                "Quick-add an OpenRouter model\n"
+                "(baseUrl: https://openrouter.ai/api/v1, "
+                "envKey: OPENROUTER_API_KEY)"
+            )
+        )
+        self.btn_add_openrouter.clicked.connect(
+            lambda: self._add_model(preset="openrouter")
+        )
+        self.btn_add_openrouter.setStyleSheet("""
+            QPushButton {
+                background-color: #2d3436;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-size: 13px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #1e272e; }
+        """)
+        btn_layout.addWidget(self.btn_add_openrouter)
 
         self.btn_edit = QPushButton(self.tr("Edit"))
         self.btn_edit.setMinimumHeight(42)
@@ -905,12 +958,15 @@ class QwenModelManager(QMainWindow):
             )
             self._load_settings()
 
-    def _add_model(self):
+    def _add_model(self, preset=None):
         """Add a new model to settings.json."""
         providers = self.settings_data.get("modelProviders", {})
         env_vars = self.settings_data.get("env", {})
 
-        dlg = AddEditModelDialog(self, model=None, providers=providers, env_vars=env_vars)
+        dlg = AddEditModelDialog(
+            self, model=None, providers=providers, env_vars=env_vars,
+            preset=preset,
+        )
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
 
@@ -930,21 +986,26 @@ class QwenModelManager(QMainWindow):
 
         self.settings_data["modelProviders"][provider].append(new_model)
 
-        # Only add envKey if non-empty and new
+        # Only add envKey if non-empty and new; store the pasted key value
         if data["envKey"].strip():
             if data["envKey"] not in self.settings_data.get("env", {}):
                 self.settings_data.setdefault("env", {})[data["envKey"]] = ""
+            if data["apiKey"]:
+                self.settings_data["env"][data["envKey"]] = data["apiKey"]
 
         if self._save_settings():
-            QMessageBox.information(
-                self,
-                self.tr("Success"),
-                self.tr(
+            if data["apiKey"]:
+                msg = self.tr(
+                    "Model added:\n\n  {name}\n\n"
+                    "The API key was saved to env[{envkey}]."
+                ).format(name=data["name"], envkey=data["envKey"])
+            else:
+                msg = self.tr(
                     "Model added:\n\n  {name}\n\n"
                     "Remember to assign the API key in settings.json "
                     "if you used a new envKey."
-                ).format(name=data["name"]),
-            )
+                ).format(name=data["name"])
+            QMessageBox.information(self, self.tr("Success"), msg)
             self._load_settings()
 
     def _edit_model(self):
@@ -1001,9 +1062,11 @@ class QwenModelManager(QMainWindow):
             self.settings_data["modelProviders"][new_provider] = []
         self.settings_data["modelProviders"][new_provider].append(updated_model)
 
-        # 3. If envKey is new, add to env dict
+        # 3. If envKey is new, add to env dict; store the pasted key value
         if data["envKey"] and data["envKey"] not in self.settings_data.get("env", {}):
             self.settings_data.setdefault("env", {})[data["envKey"]] = ""
+        if data["envKey"] and data["apiKey"]:
+            self.settings_data.setdefault("env", {})[data["envKey"]] = data["apiKey"]
 
         # 4. If it was the active model, update it
         current = self.settings_data.get("model", {})
