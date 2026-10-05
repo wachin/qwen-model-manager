@@ -3,31 +3,46 @@
 Qwen Model Manager - GUI for managing Qwen Code models
 Adapted to the real settings.json structure of Qwen Code v4
 
+Version v2:
+- One tab per provider in the model list
+- Filter by ID / Name / Base URL / envKey with checkboxes
+- Live refresh and synchronised selection
+
 Usage:
-    python3 qwen_model_manager.py
+    python3 model_manager_v2.py
 """
 
 import sys
 import json
-import os
 import shutil
 from datetime import datetime
 from pathlib import Path
 
-try:
-    from PyQt6.QtWidgets import (
-        QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-        QListWidget, QListWidgetItem, QPushButton, QLabel, QMessageBox,
-        QGroupBox, QTextEdit, QSplitter, QStatusBar, QDialog,
-        QLineEdit, QFormLayout, QComboBox, QDialogButtonBox,
-        QFileDialog
-    )
-    from PyQt6.QtCore import Qt, QTimer, QTranslator, QLocale
-    from PyQt6.QtGui import QFont, QColor, QPalette, QShortcut, QKeySequence
-except ImportError:
-    print("ERROR: PyQt6 is not installed.")
-    print("Install it with: pip install PyQt6")
-    sys.exit(1)
+from PyQt6.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QLabel,
+    QMessageBox,
+    QGroupBox,
+    QTextEdit,
+    QSplitter,
+    QDialog,
+    QLineEdit,
+    QFormLayout,
+    QComboBox,
+    QDialogButtonBox,
+    QFileDialog,
+    QTabWidget,
+    QCheckBox,
+)
+from PyQt6.QtCore import Qt, QTranslator, QLocale
+from PyQt6.QtGui import QFont, QColor, QPalette, QShortcut, QKeySequence
 
 
 SETTINGS_PATH = Path.home() / ".qwen" / "settings.json"
@@ -48,8 +63,10 @@ def _mask_key(value):
 def _file_info(path):
     """Returns (size_str, mtime_str) for a file."""
     if not path.exists():
-        return (QApplication.translate("App", "(does not exist)"),
-                QApplication.translate("App", "(does not exist)"))
+        return (
+            QApplication.translate("App", "(does not exist)"),
+            QApplication.translate("App", "(does not exist)"),
+        )
     st = path.stat()
     size = st.st_size
     if size < 1024:
@@ -59,8 +76,7 @@ def _file_info(path):
     else:
         size_str = f"{size / (1024 * 1024):1f} MB"
     mtime = datetime.fromtimestamp(st.st_mtime)
-    mtime_str = mtime.strftime("%Y-%m-%d %H:%M:%S")
-    return (size_str, mtime_str)
+    return size_str, mtime.strftime("%Y-%m-%d %H:%M:%S")
 
 
 class AddEditModelDialog(QDialog):
@@ -116,7 +132,8 @@ class AddEditModelDialog(QDialog):
         layout.addLayout(form)
 
         buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.accepted.connect(self._validate_and_accept)
         buttons.rejected.connect(self.reject)
@@ -127,6 +144,7 @@ class AddEditModelDialog(QDialog):
             prov_idx = self.combo_provider.findText(model.get("provider", "openai"))
             if prov_idx >= 0:
                 self.combo_provider.setCurrentIndex(prov_idx)
+
             self.input_id.setText(model.get("id", ""))
             self.input_name.setText(model.get("name", ""))
             self.input_baseurl.setText(model.get("baseUrl", ""))
@@ -135,6 +153,7 @@ class AddEditModelDialog(QDialog):
                 self.combo_envkey.setCurrentIndex(env_idx)
             else:
                 self.combo_envkey.setEditText(model.get("envKey", ""))
+
             if env_vars:
                 existing = env_vars.get(model.get("envKey", ""), "")
                 if existing:
@@ -167,8 +186,9 @@ class AddEditModelDialog(QDialog):
             return
         if not self.input_baseurl.text().strip():
             QMessageBox.warning(
-                self, self.tr("Validation"),
-                self.tr("The Base URL field is required.")
+                self,
+                self.tr("Validation"),
+                self.tr("The Base URL field is required."),
             )
             return
         self.accept()
@@ -191,13 +211,16 @@ class QwenModelManager(QMainWindow):
         self.setMinimumSize(1000, 700)
 
         self.settings_data = {}
-        self.models_list = []
+        self.models_by_provider = {}
+        # provider name -> QListWidget
+        self.tab_lists = {}
 
         self._build_ui()
         self._setup_shortcuts()
         self._load_settings()
         self._apply_style()
 
+    # ------------------------------------------------------------------ UI ---
     def _build_ui(self):
         central = QWidget()
         self.setCentralWidget(central)
@@ -234,11 +257,50 @@ class QwenModelManager(QMainWindow):
         left_layout.addWidget(help_label)
         left_layout.addSpacing(5)
 
-        # Model list
-        self.list_models = QListWidget()
-        self.list_models.setSpacing(5)
-        self.list_models.itemSelectionChanged.connect(self._on_selection_changed)
-        left_layout.addWidget(self.list_models)
+        # ---- Filter widget ----
+        self.filter_input = QLineEdit()
+        self.filter_input.setPlaceholderText(
+            self.tr("Filter by ID, Name, Base URL or envKey...")
+        )
+        self.filter_input.textChanged.connect(self._on_filter_changed)
+
+        self.filter_by_id = QCheckBox(self.tr("ID"))
+        self.filter_by_id.setChecked(True)
+        self.filter_by_name = QCheckBox(self.tr("Name"))
+        self.filter_by_name.setChecked(True)
+        self.filter_by_baseurl = QCheckBox(self.tr("Base URL"))
+        self.filter_by_baseurl.setChecked(True)
+        self.filter_by_envkey = QCheckBox(self.tr("envKey"))
+        self.filter_by_envkey.setChecked(True)
+        for cb in (
+            self.filter_by_id,
+            self.filter_by_name,
+            self.filter_by_baseurl,
+            self.filter_by_envkey,
+        ):
+            cb.stateChanged.connect(self._on_filter_changed)
+
+        filter_layout = QHBoxLayout()
+        filter_layout.addWidget(self.filter_by_id)
+        filter_layout.addWidget(self.filter_by_name)
+        filter_layout.addWidget(self.filter_by_baseurl)
+        filter_layout.addWidget(self.filter_by_envkey)
+        filter_layout.addStretch(1)
+
+        filter_group = QGroupBox(self.tr("Filter Models"))
+        filter_group_layout = QHBoxLayout(filter_group)
+        filter_group_layout.addLayout(filter_layout)
+        filter_group_layout.addWidget(self.filter_input)
+        filter_group_layout.setStretch(0, 0)
+        filter_group_layout.setStretch(1, 1)
+
+        left_layout.addWidget(filter_group)
+
+        # ---- Provider tabs ----
+        self.menu_tabs = QTabWidget()
+        self.menu_tabs.setDocumentMode(True)
+        self.menu_tabs.currentChanged.connect(self._on_tab_changed)
+        left_layout.addWidget(self.menu_tabs)
 
         # Action buttons
         btn_layout = QHBoxLayout()
@@ -246,7 +308,8 @@ class QwenModelManager(QMainWindow):
         self.btn_add = QPushButton(self.tr("+ Add Model"))
         self.btn_add.setMinimumHeight(42)
         self.btn_add.clicked.connect(self._add_model)
-        self.btn_add.setStyleSheet("""
+        self.btn_add.setStyleSheet(
+            """
             QPushButton {
                 background-color: #00b894;
                 color: white;
@@ -257,7 +320,8 @@ class QwenModelManager(QMainWindow):
                 font-weight: bold;
             }
             QPushButton:hover { background-color: #00a381; }
-        """)
+        """
+        )
         btn_layout.addWidget(self.btn_add)
 
         self.btn_add_openrouter = QPushButton(self.tr("+ OpenRouter"))
@@ -272,7 +336,8 @@ class QwenModelManager(QMainWindow):
         self.btn_add_openrouter.clicked.connect(
             lambda: self._add_model(preset="openrouter")
         )
-        self.btn_add_openrouter.setStyleSheet("""
+        self.btn_add_openrouter.setStyleSheet(
+            """
             QPushButton {
                 background-color: #2d3436;
                 color: white;
@@ -283,7 +348,8 @@ class QwenModelManager(QMainWindow):
                 font-weight: bold;
             }
             QPushButton:hover { background-color: #1e272e; }
-        """)
+        """
+        )
         btn_layout.addWidget(self.btn_add_openrouter)
 
         self.btn_edit = QPushButton(self.tr("Edit"))
@@ -300,7 +366,8 @@ class QwenModelManager(QMainWindow):
         self.btn_set_active.setMinimumHeight(42)
         self.btn_set_active.setEnabled(False)
         self.btn_set_active.clicked.connect(self._set_active_model)
-        self.btn_set_active.setStyleSheet("""
+        self.btn_set_active.setStyleSheet(
+            """
             QPushButton {
                 background-color: #6c5ce7;
                 color: white;
@@ -312,7 +379,8 @@ class QwenModelManager(QMainWindow):
             }
             QPushButton:hover { background-color: #5a4bd1; }
             QPushButton:disabled { background-color: #b2bec3; color: #636e72; }
-        """)
+        """
+        )
         btn_layout2.addWidget(self.btn_set_active)
 
         self.btn_delete = QPushButton(self.tr("Delete"))
@@ -356,7 +424,6 @@ class QwenModelManager(QMainWindow):
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Selected model details
         details_group = QGroupBox(self.tr("Selected Model Details"))
         details_layout = QVBoxLayout(details_group)
 
@@ -396,7 +463,6 @@ class QwenModelManager(QMainWindow):
 
         right_layout.addWidget(details_group)
 
-        # Current status
         status_group = QGroupBox(self.tr("Qwen Code Current Status"))
         status_layout = QVBoxLayout(status_group)
 
@@ -415,7 +481,6 @@ class QwenModelManager(QMainWindow):
 
         right_layout.addWidget(status_group)
 
-        # JSON preview
         preview_group = QGroupBox(self.tr("JSON Preview (read-only)"))
         preview_layout = QVBoxLayout(preview_group)
 
@@ -436,24 +501,22 @@ class QwenModelManager(QMainWindow):
         splitter.setHandleWidth(8)
         main_layout.addWidget(splitter)
 
-        # Status bar
         self.statusBar().showMessage(
             self.tr("Ready. Select a model to view details.")
         )
 
     def _setup_shortcuts(self):
-        """Configure keyboard shortcuts."""
-        shortcut_reload = QShortcut(QKeySequence("Ctrl+R"), self)
-        shortcut_reload.activated.connect(self._load_settings)
-
-        shortcut_delete = QShortcut(QKeySequence("Delete"), self)
-        shortcut_delete.activated.connect(self._delete_selected)
+        QShortcut(QKeySequence("Ctrl+R"), self).activated.connect(
+            self._load_settings
+        )
+        QShortcut(QKeySequence("Delete"), self).activated.connect(
+            self._delete_selected
+        )
 
     def _apply_style(self):
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #f5f6fa;
-            }
+        self.setStyleSheet(
+            """
+            QMainWindow { background-color: #f5f6fa; }
             QGroupBox {
                 font-weight: bold;
                 border: 1px solid #dcdde1;
@@ -463,15 +526,30 @@ class QwenModelManager(QMainWindow):
                 background-color: #ffffff;
             }
             QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px;
+                subcontrol-origin: margin; left: 10px;
+                padding: 0 5px; color: #2f3640;
+            }
+            QTabWidget::pane {
+                border: 1px solid #dcdde1; border-radius: 8px;
+                background: #ffffff;
+            }
+            QTabBar::tab {
+                background: #ffffff;
+                border: 1px solid #dcdde1;
+                border-bottom: none;
+                border-radius: 8px 8px 0 0;
+                padding: 6px 12px;
+                font-size: 13px;
+                font-weight: bold;
                 color: #2f3640;
             }
+            QTabBar::tab:selected {
+                background: #0984e3; color: white; border-color: #0770c2;
+            }
+            QTabBar::tab:hover { background: #dfe6e9; color: #2f3640; }
             QListWidget {
                 background-color: #ffffff;
-                border: 1px solid #dcdde1;
-                border-radius: 8px;
+                border: none;
                 padding: 8px;
                 font-size: 13px;
             }
@@ -482,75 +560,51 @@ class QwenModelManager(QMainWindow):
                 border: 1px solid transparent;
             }
             QListWidget::item:selected {
-                background-color: #0984e3;
-                color: white;
+                background-color: #0984e3; color: white;
                 border: 1px solid #0770c2;
             }
-            QListWidget::item:hover {
-                background-color: #dfe6e9;
-                color: #2f3640;
+            QListWidget::item:hover { background-color: #dfe6e9; color: #2f3640; }
+            QScrollBar:vertical { background: #ffffff; width: 14px; }
+            QScrollBar::handle:vertical {
+                background: #b2bec3; border-radius: 7px; min-height: 20px;
             }
-            QPushButton {
-                background-color: #0984e3;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 8px 16px;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0770c2;
-            }
-            QPushButton:disabled {
-                background-color: #b2bec3;
-                color: #636e72;
-            }
-            QTextEdit {
-                background-color: #2d3436;
-                color: #dfe6e9;
-                border-radius: 6px;
-                border: 1px solid #636e72;
-                padding: 10px;
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0;
             }
             QLineEdit {
-                border: 1px solid #dcdde1;
-                border-radius: 4px;
-                padding: 6px;
-                font-size: 13px;
+                border: 1px solid #dcdde1; border-radius: 4px;
+                padding: 6px; font-size: 13px;
             }
-            QLineEdit:focus {
-                border: 1px solid #0984e3;
-            }
-            QComboBox {
-                border: 1px solid #dcdde1;
-                border-radius: 4px;
-                padding: 6px;
-                font-size: 13px;
-            }
-        """)
-        # Special style for danger button
-        self.btn_delete.setStyleSheet("""
+            QLineEdit:focus { border: 1px solid #0984e3; }
+            QCheckBox { spacing: 6px; font-size: 13px; }
             QPushButton {
-                background-color: #d63031;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 8px 16px;
-                font-size: 13px;
-                font-weight: bold;
+                background-color: #0984e3; color: white; border: none;
+                border-radius: 6px; padding: 8px 16px;
+                font-size: 13px; font-weight: bold;
+            }
+            QPushButton:hover { background-color: #0770c2; }
+            QPushButton:disabled { background-color: #b2bec3; color: #636e72; }
+            QTextEdit {
+                background-color: #2d3436; color: #dfe6e9;
+                border-radius: 6px; border: 1px solid #636e72; padding: 10px;
+            }
+        """
+        )
+        self.btn_delete.setStyleSheet(
+            """
+            QPushButton {
+                background-color: #d63031; color: white; border: none;
+                border-radius: 6px; padding: 8px 16px;
+                font-size: 13px; font-weight: bold;
             }
             QPushButton:hover { background-color: #b71515; }
             QPushButton:disabled { background-color: #b2bec3; color: #636e72; }
-        """)
+        """
+        )
 
+    # --------------------------------------------------------------- data ---
     def _load_settings(self):
-        """Load settings.json and update the interface."""
-        self.list_models.clear()
-        self.models_list = []
-        self.settings_data = {}
-
-        # Update file info
+        """Load settings.json and rebuild the provider tabs."""
         size_str, mtime_str = _file_info(SETTINGS_PATH)
         self.lbl_file_info.setText(
             f"File: {SETTINGS_PATH}  |  Size: {size_str}  |  "
@@ -587,53 +641,95 @@ class QwenModelManager(QMainWindow):
             return
         except Exception as e:
             QMessageBox.critical(
-                self, self.tr("Error"),
-                self.tr("Could not read file:\n{error}").format(error=e)
+                self,
+                self.tr("Error"),
+                self.tr("Could not read file:\n{error}").format(error=e),
             )
             return
 
-        # Extract models from the real structure
         providers = self.settings_data.get("modelProviders", {})
-        for provider_name, models in providers.items():
-            if isinstance(models, list):
-                for model in models:
-                    model_id = model.get("id", "no-id")
-                    model_name = model.get("name", model_id)
-                    base_url = model.get("baseUrl", "N/A")
-                    env_key = model.get("envKey", "")
+        self.models_by_provider = {
+            name: list(models)
+            for name, models in providers.items()
+            if isinstance(models, list)
+        }
 
-                    self.models_list.append({
-                        "provider": provider_name,
-                        "id": model_id,
-                        "name": model_name,
-                        "baseUrl": base_url,
-                        "envKey": env_key,
-                        "raw": model,
-                    })
+        # Rebuild tabs
+        self.menu_tabs.blockSignals(True)
+        self.menu_tabs.clear()
+        self.tab_lists = {}
 
-        # Display in list with provider indicator
-        for idx, m in enumerate(self.models_list):
-            env_info = ""
-            if m["envKey"]:
-                env_info = " | Key: " + m["envKey"][-12:]
+        for provider_name in sorted(self.models_by_provider.keys()):
+            tab = QWidget()
+            tab_layout = QVBoxLayout(tab)
+            tab_layout.setContentsMargins(0, 0, 0, 0)
 
-            # Active model indicator
-            current = self.settings_data.get("model", {})
-            is_active = (
-                current.get("name") == m["name"]
-                and current.get("baseUrl") == m["baseUrl"]
-            )
-            prefix = "[ACTIVE] " if is_active else "          "
+            tab_list = QListWidget()
+            tab_list.setSpacing(5)
+            tab_list.itemSelectionChanged.connect(self._on_selection_changed)
 
-            item_text = (
-                f"{prefix}{m['name']}\n"
-                f"    Provider: {m['provider']}  |  URL: {m['baseUrl']}{env_info}"
-            )
-            item = QListWidgetItem(item_text)
-            item.setData(Qt.ItemDataRole.UserRole, idx)
-            self.list_models.addItem(item)
+            tab_layout.addWidget(tab_list)
+            self.menu_tabs.addTab(tab, provider_name)
+            self.tab_lists[provider_name] = tab_list
 
-        # Update current status
+        self.menu_tabs.blockSignals(False)
+
+        self._refresh_tabs()
+        self._update_status_bar()
+        self.text_preview.setText(
+            json.dumps(self.settings_data, indent=2, ensure_ascii=False)
+        )
+        self._update_current_status()
+
+    def _passes_filter(self, model):
+        """Return True if the model matches the current filter."""
+        filter_text = self.filter_input.text().strip().lower()
+        if not filter_text:
+            return True
+
+        checks = []
+        if self.filter_by_id.isChecked():
+            checks.append(str(model.get("id", "")).lower())
+        if self.filter_by_name.isChecked():
+            checks.append(str(model.get("name", "")).lower())
+        if self.filter_by_baseurl.isChecked():
+            checks.append(str(model.get("baseUrl", "")).lower())
+        if self.filter_by_envkey.isChecked():
+            checks.append(str(model.get("envKey", "")).lower())
+
+        return any(filter_text in value for value in checks)
+
+    def _refresh_tabs(self):
+        """Repopulate every provider tab honouring the active filter."""
+        for provider_name, tab_list in self.tab_lists.items():
+            tab_list.blockSignals(True)
+            tab_list.clear()
+            for model in self.models_by_provider.get(provider_name, []):
+                if not self._passes_filter(model):
+                    continue
+                item = QListWidgetItem(
+                    f"{model.get('id', 'no-id')}\n"
+                    f"    Name: {model.get('name', '')}\n"
+                    f"    Base URL: {model.get('baseUrl', 'N/A')}\n"
+                    f"    envKey: {model.get('envKey', '')}"
+                )
+                item.setData(Qt.ItemDataRole.UserRole, model)
+                tab_list.addItem(item)
+            tab_list.blockSignals(False)
+
+        self._on_selection_changed()
+
+    def _update_status_bar(self):
+        count = sum(len(v) for v in self.models_by_provider.values())
+        provider_count = len(self.models_by_provider)
+        self.statusBar().showMessage(
+            self.tr(
+                "Loaded {count} model(s) in {providers} provider(s). "
+                "Select one to view details."
+            ).format(count=count, providers=provider_count)
+        )
+
+    def _update_current_status(self):
         current = self.settings_data.get("model", {})
         current_name = current.get("name", "None")
         current_baseurl = current.get("baseUrl", "N/A")
@@ -642,7 +738,6 @@ class QwenModelManager(QMainWindow):
             .get("auth", {})
             .get("selectedType", "N/A")
         )
-
         self.lbl_current_model.setText(
             self.tr("Active model: {name}").format(name=current_name)
         )
@@ -653,23 +748,26 @@ class QwenModelManager(QMainWindow):
             self.tr("Auth type: {type}").format(type=auth_type)
         )
 
-        # JSON preview
-        self.text_preview.setText(
-            json.dumps(self.settings_data, indent=2, ensure_ascii=False)
-        )
+    # ----------------------------------------------------------- selection ---
+    def _on_filter_changed(self):
+        self._refresh_tabs()
 
-        count = len(self.models_list)
-        provider_count = len(providers)
-        self.statusBar().showMessage(
-            self.tr(
-                "Loaded {count} model(s) in {providers} provider(s). "
-                "Select one to view details."
-            ).format(count=count, providers=provider_count)
-        )
+    def _on_tab_changed(self, _index):
+        self._on_selection_changed()
+
+    def _current_model(self):
+        """Return the model dict selected in the active tab, or None."""
+        tab_list = self.tab_lists.get(self.menu_tabs.tabText(self.menu_tabs.currentIndex()))
+        if tab_list is None:
+            return None
+        selected = tab_list.selectedItems()
+        if not selected:
+            return None
+        return selected[0].data(Qt.ItemDataRole.UserRole)
 
     def _on_selection_changed(self):
-        selected = self.list_models.selectedItems()
-        if not selected:
+        model = self._current_model()
+        if not model:
             self.btn_delete.setEnabled(False)
             self.btn_edit.setEnabled(False)
             self.btn_set_active.setEnabled(False)
@@ -681,24 +779,17 @@ class QwenModelManager(QMainWindow):
             self.lbl_shared_info.setText("")
             return
 
-        idx = selected[0].data(Qt.ItemDataRole.UserRole)
-        model = self.models_list[idx]
+        self.lbl_model_id.setText(f"<b>ID:</b> {model.get('id', '')}")
+        self.lbl_model_name.setText(f"<b>Name:</b> {model.get('name', '')}")
+        self.lbl_base_url.setText(f"<b>Base URL:</b> {model.get('baseUrl', '')}")
+        self.lbl_env_key.setText(f"<b>envKey:</b> {model.get('envKey', '')}")
 
-        self.lbl_model_id.setText(f"<b>ID:</b> {model['id']}")
-        self.lbl_model_name.setText(f"<b>Name:</b> {model['name']}")
-        self.lbl_base_url.setText(f"<b>Base URL:</b> {model['baseUrl']}")
-        self.lbl_env_key.setText(f"<b>envKey:</b> {model['envKey']}")
-
-        # Masked API key
         env_vars = self.settings_data.get("env", {})
-        key_val = env_vars.get(model["envKey"], "")
+        key_val = env_vars.get(model.get("envKey", ""), "")
         self.lbl_api_key.setText(f"<b>API Key:</b> {_mask_key(key_val)}")
 
-        # Sharing info
-        env_key = model["envKey"]
-        shared_count = sum(
-            1 for m in self.models_list if m["envKey"] == env_key
-        )
+        env_key = model.get("envKey", "")
+        shared_count = self._count_envkey_usage(env_key)
         if shared_count > 1:
             self.lbl_shared_info.setText(
                 self.tr(
@@ -717,8 +808,18 @@ class QwenModelManager(QMainWindow):
         self.btn_edit.setEnabled(True)
         self.btn_set_active.setEnabled(True)
 
+    def _count_envkey_usage(self, env_key):
+        if not env_key:
+            return 0
+        return sum(
+            1
+            for models in self.models_by_provider.values()
+            for m in models
+            if m.get("envKey", "") == env_key
+        )
+
+    # ------------------------------------------------------------- editing ---
     def _validate_json(self, data):
-        """Validate that data is serializable and re-readable JSON."""
         try:
             serialized = json.dumps(data, indent=2, ensure_ascii=False)
             json.loads(serialized)
@@ -727,8 +828,6 @@ class QwenModelManager(QMainWindow):
             return False, self.tr("Validation error: {error}").format(error=e)
 
     def _save_settings(self):
-        """Save JSON safely with backup and validation."""
-        # Validate before saving
         valid, msg = self._validate_json(self.settings_data)
         if not valid:
             QMessageBox.critical(
@@ -738,7 +837,6 @@ class QwenModelManager(QMainWindow):
             )
             return False
 
-        # Backup
         backup_path = SETTINGS_PATH.with_suffix(".json.backup")
         try:
             if SETTINGS_PATH.exists():
@@ -746,7 +844,6 @@ class QwenModelManager(QMainWindow):
         except Exception:
             pass
 
-        # Save preserving format
         try:
             with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
                 json.dump(self.settings_data, f, indent=2, ensure_ascii=False)
@@ -754,211 +851,30 @@ class QwenModelManager(QMainWindow):
             return True
         except Exception as e:
             QMessageBox.critical(
-                self, self.tr("Save Error"),
-                self.tr("Could not save file:\n{error}").format(error=e)
+                self,
+                self.tr("Save Error"),
+                self.tr("Could not save file:\n{error}").format(error=e),
             )
             return False
 
-    def _delete_selected(self):
-        selected = self.list_models.selectedItems()
-        if not selected:
-            return
-
-        idx = selected[0].data(Qt.ItemDataRole.UserRole)
-        model = self.models_list[idx]
-        model_name = model["name"]
-        model_id = model["id"]
-        provider = model["provider"]
-        env_key_to_check = model["envKey"]
-
-        # Count models using the same envKey
-        shared_count = sum(
-            1 for m in self.models_list if m["envKey"] == env_key_to_check
-        )
-        will_delete_key = shared_count <= 1
-
-        key_msg = ""
-        if will_delete_key and env_key_to_check:
-            key_msg = (
-                "\n\nIts API Key will also be removed from the file."
-            )
-        elif env_key_to_check:
-            key_msg = (
-                "\n\nThe API Key is PRESERVED because other models use it."
-            )
-
-        reply = QMessageBox.question(
-            self,
-            self.tr("Confirm Deletion"),
-            self.tr(
-                "You are about to delete the model:\n\n"
-                "  {name}\n"
-                "  ID: {id}\n"
-                "  Provider: {provider}\n"
-                "  envKey: {envkey}"
-                "{keymsg}\n\n"
-                "Are you sure?"
-            ).format(
-                name=model_name, id=model_id, provider=provider,
-                envkey=env_key_to_check, keymsg=key_msg,
-            ),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-
-        if reply != QMessageBox.StandardButton.Yes:
-            return
-
-        # Safe deletion
-        try:
-            providers = self.settings_data.get("modelProviders", {})
-            if provider in providers and isinstance(providers[provider], list):
-                providers[provider] = [
-                    m
-                    for m in providers[provider]
-                    if not (
-                        m.get("id") == model_id
-                        and m.get("baseUrl") == model["baseUrl"]
-                    )
-                ]
-                if not providers[provider]:
-                    del providers[provider]
-
-            # Delete API key only if no other model uses it
-            if will_delete_key and env_key_to_check:
-                env_vars = self.settings_data.get("env", {})
-                if env_key_to_check in env_vars:
-                    del env_vars[env_key_to_check]
-
-            # If the deleted model was active, select another one
-            current_model = self.settings_data.get("model", {})
-            if current_model.get("name") == model_name:
-                self._auto_select_new_active()
-
-            if not self._save_settings():
-                return
-
-            QMessageBox.information(
-                self,
-                self.tr("Success"),
-                self.tr(
-                    "Successfully deleted:\n\n"
-                    "  - {name}\n"
-                    "{keyline}\n"
-                    "Restart Qwen Code to apply changes."
-                ).format(
-                    name=model_name,
-                    keyline=(
-                        f"  - {env_key_to_check}\n"
-                        if will_delete_key and env_key_to_check
-                        else ""
-                    ),
-                ),
-            )
-
-            self._load_settings()
-
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                self.tr("Delete Error"),
-                self.tr(
-                    "An error occurred:\n{error}\n\n"
-                    "The file may be damaged. Check it manually:\n"
-                    "{path}"
-                ).format(error=e, path=SETTINGS_PATH),
-            )
-
     def _auto_select_new_active(self):
-        """Automatically select another model as active."""
-        new_active = None
-        providers = self.settings_data.get("modelProviders", {})
-        for prov_name, models in providers.items():
+        for prov_name, models in self.settings_data.get(
+            "modelProviders", {}
+        ).items():
             if models:
                 first = models[0]
-                new_active = {
+                self.settings_data["model"] = {
                     "name": first.get("name", first.get("id", "")),
                     "baseUrl": first.get("baseUrl", ""),
                 }
-                self.settings_data["security"] = self.settings_data.get(
-                    "security", {}
-                )
-                self.settings_data["security"]["auth"] = {
+                self.settings_data.setdefault("security", {})["auth"] = {
                     "selectedType": prov_name
                 }
-                break
-
-        if new_active:
-            self.settings_data["model"] = new_active
-        else:
-            self.settings_data["model"] = {"name": "", "baseUrl": ""}
-            self.settings_data["security"] = {
-                "auth": {"selectedType": ""}
-            }
-
-    def _set_active_model(self):
-        """Change the active model without deleting any."""
-        selected = self.list_models.selectedItems()
-        if not selected:
-            return
-
-        idx = selected[0].data(Qt.ItemDataRole.UserRole)
-        model = self.models_list[idx]
-
-        # Check if already active
-        current = self.settings_data.get("model", {})
-        if (
-            current.get("name") == model["name"]
-            and current.get("baseUrl") == model["baseUrl"]
-        ):
-            QMessageBox.information(
-                self, self.tr("Info"),
-                self.tr("This model is already active.")
-            )
-            return
-
-        reply = QMessageBox.question(
-            self,
-            self.tr("Activate Model"),
-            self.tr(
-                "Do you want to activate the model:\n\n"
-                "  {name}\n"
-                "  Base URL: {url}\n"
-                "  Provider: {provider}\n\n"
-                "This will change the active model in Qwen Code."
-            ).format(
-                name=model["name"], url=model["baseUrl"],
-                provider=model["provider"],
-            ),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-
-        if reply != QMessageBox.StandardButton.Yes:
-            return
-
-        self.settings_data["model"] = {
-            "name": model["name"],
-            "baseUrl": model["baseUrl"],
-        }
-        self.settings_data["security"] = self.settings_data.get("security", {})
-        self.settings_data["security"]["auth"] = {
-            "selectedType": model["provider"]
-        }
-
-        if self._save_settings():
-            QMessageBox.information(
-                self,
-                self.tr("Success"),
-                self.tr(
-                    "Active model changed to:\n\n  {name}\n\n"
-                    "Restart Qwen Code to apply changes."
-                ).format(name=model["name"]),
-            )
-            self._load_settings()
+                return
+        self.settings_data["model"] = {"name": "", "baseUrl": ""}
+        self.settings_data["security"] = {"auth": {"selectedType": ""}}
 
     def _add_model(self, preset=None):
-        """Add a new model to settings.json."""
         providers = self.settings_data.get("modelProviders", {})
         env_vars = self.settings_data.get("env", {})
 
@@ -979,13 +895,10 @@ class QwenModelManager(QMainWindow):
             "envKey": data["envKey"],
         }
 
-        # Add to provider
         if provider not in self.settings_data.get("modelProviders", {}):
             self.settings_data.setdefault("modelProviders", {})[provider] = []
-
         self.settings_data["modelProviders"][provider].append(new_model)
 
-        # Only add envKey if non-empty and new; store the pasted key value
         if data["envKey"].strip():
             if data["envKey"] not in self.settings_data.get("env", {}):
                 self.settings_data.setdefault("env", {})[data["envKey"]] = ""
@@ -1008,13 +921,9 @@ class QwenModelManager(QMainWindow):
             self._load_settings()
 
     def _edit_model(self):
-        """Edit an existing model."""
-        selected = self.list_models.selectedItems()
-        if not selected:
+        model = self._current_model()
+        if not model:
             return
-
-        idx = selected[0].data(Qt.ItemDataRole.UserRole)
-        model = self.models_list[idx]
 
         providers = self.settings_data.get("modelProviders", {})
         env_vars = self.settings_data.get("env", {})
@@ -1022,11 +931,11 @@ class QwenModelManager(QMainWindow):
         dlg = AddEditModelDialog(
             self,
             model={
-                "provider": model["provider"],
-                "id": model["id"],
-                "name": model["name"],
-                "baseUrl": model["baseUrl"],
-                "envKey": model["envKey"],
+                "provider": self._current_provider(),
+                "id": model.get("id", ""),
+                "name": model.get("name", ""),
+                "baseUrl": model.get("baseUrl", ""),
+                "envKey": model.get("envKey", ""),
             },
             providers=providers,
             env_vars=env_vars,
@@ -1035,7 +944,7 @@ class QwenModelManager(QMainWindow):
             return
 
         data = dlg.get_data()
-        old_provider = model["provider"]
+        old_provider = self._current_provider()
         new_provider = data["provider"]
 
         updated_model = {
@@ -1045,11 +954,15 @@ class QwenModelManager(QMainWindow):
             "envKey": data["envKey"],
         }
 
-        # 1. Remove from old provider
+        # 1. Remove from old provider (match id + baseUrl)
         old_list = self.settings_data["modelProviders"].get(old_provider, [])
         old_list = [
-            m for m in old_list
-            if not (m.get("id") == model["id"] and m.get("baseUrl") == model["baseUrl"])
+            m
+            for m in old_list
+            if not (
+                m.get("id") == model.get("id")
+                and m.get("baseUrl") == model.get("baseUrl")
+            )
         ]
         if old_list:
             self.settings_data["modelProviders"][old_provider] = old_list
@@ -1061,21 +974,29 @@ class QwenModelManager(QMainWindow):
             self.settings_data["modelProviders"][new_provider] = []
         self.settings_data["modelProviders"][new_provider].append(updated_model)
 
-        # 3. If envKey is new, add to env dict; store the pasted key value
-        if data["envKey"] and data["envKey"] not in self.settings_data.get("env", {}):
+        # 3. envKey handling
+        if data["envKey"] and data["envKey"] not in self.settings_data.get(
+            "env", {}
+        ):
             self.settings_data.setdefault("env", {})[data["envKey"]] = ""
         if data["envKey"] and data["apiKey"]:
-            self.settings_data.setdefault("env", {})[data["envKey"]] = data["apiKey"]
+            self.settings_data.setdefault("env", {})[data["envKey"]] = data[
+                "apiKey"
+            ]
 
-        # 4. If it was the active model, update it
+        # 4. Update active model if this one was active
         current = self.settings_data.get("model", {})
-        if current.get("name") == model["name"] and current.get("baseUrl") == model["baseUrl"]:
+        if (
+            current.get("name") == model.get("name")
+            and current.get("baseUrl") == model.get("baseUrl")
+        ):
             self.settings_data["model"] = {
                 "name": data["name"],
                 "baseUrl": data["baseUrl"],
             }
-            self.settings_data["security"] = self.settings_data.get("security", {})
-            self.settings_data["security"]["auth"] = {"selectedType": new_provider}
+            self.settings_data.setdefault("security", {})["auth"] = {
+                "selectedType": new_provider
+            }
 
         if self._save_settings():
             QMessageBox.information(
@@ -1085,42 +1006,194 @@ class QwenModelManager(QMainWindow):
             )
             self._load_settings()
 
+    def _current_provider(self):
+        return self.menu_tabs.tabText(self.menu_tabs.currentIndex())
+
+    def _delete_selected(self):
+        model = self._current_model()
+        if not model:
+            return
+
+        model_name = model.get("name", "")
+        model_id = model.get("id", "")
+        provider = self._current_provider()
+        env_key = model.get("envKey", "")
+
+        shared_count = self._count_envkey_usage(env_key)
+        will_delete_key = shared_count <= 1
+
+        if will_delete_key and env_key:
+            key_msg = "\n\nIts API Key will also be removed from the file."
+        elif env_key:
+            key_msg = "\n\nThe API Key is PRESERVED because other models use it."
+        else:
+            key_msg = ""
+
+        reply = QMessageBox.question(
+            self,
+            self.tr("Confirm Deletion"),
+            self.tr(
+                "You are about to delete the model:\n\n"
+                "  {name}\n"
+                "  ID: {id}\n"
+                "  Provider: {provider}\n"
+                "  envKey: {envkey}"
+                "{keymsg}\n\n"
+                "Are you sure?"
+            ).format(
+                name=model_name, id=model_id, provider=provider,
+                envkey=env_key, keymsg=key_msg,
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            providers = self.settings_data.get("modelProviders", {})
+            if provider in providers and isinstance(providers[provider], list):
+                providers[provider] = [
+                    m
+                    for m in providers[provider]
+                    if not (
+                        m.get("id") == model_id
+                        and m.get("baseUrl") == model.get("baseUrl")
+                    )
+                ]
+                if not providers[provider]:
+                    del providers[provider]
+
+            if will_delete_key and env_key:
+                env_vars = self.settings_data.get("env", {})
+                if env_key in env_vars:
+                    del env_vars[env_key]
+
+            current_model = self.settings_data.get("model", {})
+            if current_model.get("name") == model_name:
+                self._auto_select_new_active()
+
+            if not self._save_settings():
+                return
+
+            QMessageBox.information(
+                self,
+                self.tr("Success"),
+                self.tr(
+                    "Successfully deleted:\n\n"
+                    "  - {name}\n"
+                    "{keyline}\n"
+                    "Restart Qwen Code to apply changes."
+                ).format(
+                    name=model_name,
+                    keyline=(
+                        f"  - {env_key}\n"
+                        if will_delete_key and env_key
+                        else ""
+                    ),
+                ),
+            )
+            self._load_settings()
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                self.tr("Delete Error"),
+                self.tr(
+                    "An error occurred:\n{error}\n\n"
+                    "The file may be damaged. Check it manually:\n"
+                    "{path}"
+                ).format(error=e, path=SETTINGS_PATH),
+            )
+
+    def _set_active_model(self):
+        model = self._current_model()
+        if not model:
+            return
+
+        current = self.settings_data.get("model", {})
+        if (
+            current.get("name") == model.get("name")
+            and current.get("baseUrl") == model.get("baseUrl")
+        ):
+            QMessageBox.information(
+                self, self.tr("Info"),
+                self.tr("This model is already active."),
+            )
+            return
+
+        reply = QMessageBox.question(
+            self,
+            self.tr("Activate Model"),
+            self.tr(
+                "Do you want to activate the model:\n\n"
+                "  {name}\n"
+                "  Base URL: {url}\n"
+                "  Provider: {provider}\n\n"
+                "This will change the active model in Qwen Code."
+            ).format(
+                name=model.get("name", ""),
+                url=model.get("baseUrl", ""),
+                provider=self._current_provider(),
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        self.settings_data["model"] = {
+            "name": model.get("name", ""),
+            "baseUrl": model.get("baseUrl", ""),
+        }
+        self.settings_data.setdefault("security", {})["auth"] = {
+            "selectedType": self._current_provider()
+        }
+
+        if self._save_settings():
+            self._load_settings()
+
+    # ------------------------------------------------------------- backups ---
     def _create_backup(self):
-        """Create a timestamped backup in ~/.qwen/backups/."""
         backup_dir = Path.home() / ".qwen" / "backups"
         try:
             backup_dir.mkdir(parents=True, exist_ok=True)
         except Exception as e:
             QMessageBox.critical(
-                self, self.tr("Error"),
-                self.tr("Could not create backups folder:\n{error}").format(error=e)
+                self,
+                self.tr("Error"),
+                self.tr("Could not create backups folder:\n{error}").format(
+                    error=e
+                ),
             )
             return
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_path = backup_dir / f"settings_backup_{timestamp}.json"
-
         try:
             if SETTINGS_PATH.exists():
                 shutil.copy2(SETTINGS_PATH, backup_path)
                 QMessageBox.information(
                     self,
                     self.tr("Backup Created"),
-                    self.tr("Backup saved to:\n\n{path}").format(path=backup_path),
+                    self.tr("Backup saved to:\n\n{path}").format(
+                        path=backup_path
+                    ),
                 )
             else:
                 QMessageBox.warning(
-                    self, self.tr("Warning"),
-                    self.tr("settings.json does not exist to back up.")
+                    self,
+                    self.tr("Warning"),
+                    self.tr("settings.json does not exist to back up."),
                 )
         except Exception as e:
             QMessageBox.critical(
-                self, self.tr("Error"),
-                self.tr("Could not create backup:\n{error}").format(error=e)
+                self,
+                self.tr("Error"),
+                self.tr("Could not create backup:\n{error}").format(error=e),
             )
 
     def _restore_backup(self):
-        """Restore settings.json from a selected backup."""
         backup_dir = Path.home() / ".qwen" / "backups"
         start_dir = str(backup_dir) if backup_dir.exists() else str(Path.home())
 
@@ -1136,7 +1209,7 @@ class QwenModelManager(QMainWindow):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 restored_data = json.load(f)
-        except (json.JSONDecodeError, Exception) as e:
+        except Exception as e:
             QMessageBox.critical(
                 self,
                 self.tr("Error"),
@@ -1156,15 +1229,14 @@ class QwenModelManager(QMainWindow):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
-
         if reply != QMessageBox.StandardButton.Yes:
             return
 
-        # Backup current file before restoring
         if SETTINGS_PATH.exists():
-            pre_restore = SETTINGS_PATH.with_suffix(".json.pre-restore")
             try:
-                shutil.copy2(SETTINGS_PATH, pre_restore)
+                shutil.copy2(
+                    SETTINGS_PATH, SETTINGS_PATH.with_suffix(".json.pre-restore")
+                )
             except Exception:
                 pass
 
@@ -1183,12 +1255,12 @@ class QwenModelManager(QMainWindow):
             self._load_settings()
         except Exception as e:
             QMessageBox.critical(
-                self, self.tr("Error"),
-                self.tr("Could not restore backup:\n{error}").format(error=e)
+                self,
+                self.tr("Error"),
+                self.tr("Could not restore backup:\n{error}").format(error=e),
             )
 
     def _open_folder(self):
-        """Open the .qwen folder in the file explorer."""
         qwen_dir = Path.home() / ".qwen"
         if not qwen_dir.exists():
             QMessageBox.warning(
@@ -1197,7 +1269,6 @@ class QwenModelManager(QMainWindow):
                 self.tr("Folder does not exist:\n{path}").format(path=qwen_dir),
             )
             return
-
         try:
             import subprocess
             subprocess.Popen(
@@ -1207,8 +1278,9 @@ class QwenModelManager(QMainWindow):
             )
         except Exception as e:
             QMessageBox.critical(
-                self, self.tr("Error"),
-                self.tr("Could not open folder:\n{error}").format(error=e)
+                self,
+                self.tr("Error"),
+                self.tr("Could not open folder:\n{error}").format(error=e),
             )
 
 
@@ -1216,7 +1288,6 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
-    # --- Load translations based on system locale ---
     translator = QTranslator()
     locale = QLocale.system().name()  # e.g. "es_ES", "en_US"
     ts_file = TRANSLATIONS_DIR / f"{locale}.qm"
