@@ -128,7 +128,6 @@ class AddEditModelDialog(QDialog):
             if prov_idx >= 0:
                 self.combo_provider.setCurrentIndex(prov_idx)
             self.input_id.setText(model.get("id", ""))
-            self.input_id.setReadOnly(True)
             self.input_name.setText(model.get("name", ""))
             self.input_baseurl.setText(model.get("baseUrl", ""))
             env_idx = self.combo_envkey.findText(model.get("envKey", ""))
