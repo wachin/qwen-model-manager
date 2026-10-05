@@ -9,7 +9,7 @@ Version v2:
 - Live refresh and synchronised selection
 
 Usage:
-    python3 model_manager_v2.py
+    python3 model_manager.py
 """
 
 import sys
@@ -42,11 +42,44 @@ from PyQt6.QtWidgets import (
     QCheckBox,
 )
 from PyQt6.QtCore import Qt, QTranslator, QLocale
-from PyQt6.QtGui import QFont, QColor, QPalette, QShortcut, QKeySequence
+from PyQt6.QtGui import (
+    QFont, QColor, QPalette, QShortcut, QKeySequence, QIcon,
+)
 
 
 SETTINGS_PATH = Path.home() / ".qwen" / "settings.json"
 TRANSLATIONS_DIR = Path(__file__).parent / "translations"
+
+# AI-related icons, in order of preference: theme names first (works with the
+# active icon theme, Papirus in this system), then absolute fallback paths.
+ICON_THEME_NAMES = [
+    "braindump",             # brain (Papirus, breeze-dark, oxygen)
+    "devassistant",          # assistant / coding-bot (Papirus)
+    "cpu-x",                 # processor chip (Papirus)
+    "applications-science",  # atom (Papirus, breeze, gnome)
+    "utilities-terminal",
+]
+ICON_FALLBACK_PATHS = [
+    "/usr/share/icons/Papirus/48x48/apps/braindump.svg",
+    "/usr/share/icons/Papirus/64x64/apps/braindump.svg",
+    "/usr/share/icons/Papirus/48x48/apps/devassistant.svg",
+    "/usr/share/icons/Papirus/48x48/apps/cpu-x.svg",
+    "/usr/share/icons/Papirus/48x48/apps/applications-science.svg",
+]
+
+
+def load_app_icon():
+    """Return the best available AI-looking icon for the application."""
+    for name in ICON_THEME_NAMES:
+        icon = QIcon.fromTheme(name)
+        if not icon.isNull():
+            return icon
+    for path in ICON_FALLBACK_PATHS:
+        if Path(path).exists():
+            icon = QIcon(path)
+            if not icon.isNull():
+                return icon
+    return QIcon()
 
 
 def _mask_key(value):
@@ -214,6 +247,8 @@ class QwenModelManager(QMainWindow):
         self.models_by_provider = {}
         # provider name -> QListWidget
         self.tab_lists = {}
+
+        self.setWindowIcon(load_app_icon())
 
         self._build_ui()
         self._setup_shortcuts()
